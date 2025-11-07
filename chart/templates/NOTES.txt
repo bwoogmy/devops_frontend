@@ -1,0 +1,15 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your React frontend has been deployed to namespace: {{ .Release.Namespace }}
+
+To access your frontend:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "frontend.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 3000:80
+
+Then visit http://127.0.0.1:3000 to use the application.
+
+To check the status of your deployment:
+
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}"

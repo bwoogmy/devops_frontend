@@ -1,0 +1,43 @@
+# Replica count
+replicaCount: 1
+
+# Docker image configuration
+image:
+  repository: devops-frontend
+  pullPolicy: Never
+  tag: "latest"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+# Environment variables for React app
+env:
+  - name: REACT_APP_API_URL
+    value: "http://backend.backend.svc.cluster.local:8000"
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# Resources
+resources:
+  limits:
+    cpu: 250m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
