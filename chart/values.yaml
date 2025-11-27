@@ -1,39 +1,36 @@
-# Replica count
 replicaCount: 1
 
-# Docker image configuration
 image:
-  repository: devops-frontend
-  pullPolicy: Never
+  repository: ghcr.io/bwoogmy/devops-frontend
+  pullPolicy: Always
   tag: "latest"
 
-# Service configuration
+imagePullSecrets:
+  - name: ghcr-credentials
+
 service:
   type: ClusterIP
   port: 80
   targetPort: 80
 
-# Environment variables for React app
+# API URL for React app (Traefik will route /api to backend)
 env:
-  - name: REACT_APP_API_URL
-    value: "http://backend.backend.svc.cluster.local:8000"
+  API_URL: "/api/v1"
 
-# Health checks
 livenessProbe:
   httpGet:
     path: /
     port: 80
-  initialDelaySeconds: 30
+  initialDelaySeconds: 10
   periodSeconds: 10
 
 readinessProbe:
   httpGet:
     path: /
     port: 80
-  initialDelaySeconds: 10
+  initialDelaySeconds: 5
   periodSeconds: 5
 
-# Resources
 resources:
   limits:
     cpu: 250m
