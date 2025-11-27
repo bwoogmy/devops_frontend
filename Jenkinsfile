@@ -10,6 +10,7 @@ pipeline {
     }
     
     stages {
+        
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,12 +20,29 @@ pipeline {
         stage('Run Tests') {
             steps {
                 echo 'Running unit tests...'
-                sh 'npm install'
+                sh 'npm ci'
                 sh 'make unit-test'
             }
         }
+
+        stage('Lint Chart') {
+            steps {
+                echo 'Linting Helm chart'
+                sh 'make lint'
+            }
+        }
         
-        stage('Build & Push') {
+        stage('Build Image') {
+            steps {
+                script {
+                    def imageTag = env.TAG_NAME ?: 'latest'
+                    echo "Building image with tag: ${imageTag}"
+                    sh "make build IMAGE_TAG=${imageTag}"
+                }
+            }
+        }
+        
+        stage('Push to Registry') {
             when {
                 tag pattern: "v\\d+\\.\\d+\\.\\d+", comparator: "REGEXP"
             }
@@ -32,22 +50,49 @@ pipeline {
                 script {
                     def imageTag = env.TAG_NAME
                     
-                    echo "Building image with tag: ${imageTag}"
-                    sh "make build IMAGE_TAG=${imageTag}"
-                    
-                    echo "Logging into GHCR..."
+                    echo "Logging into GHCR"
                     sh '''
                         echo ${GHCR_CREDENTIALS_PSW} | docker login ghcr.io -u ${GHCR_CREDENTIALS_USR} --password-stdin
                     '''
                     
-                    echo "Pushing image to GHCR..."
+                    echo "Pushing image: ${imageTag}"
                     sh "make push IMAGE_TAG=${imageTag}"
                     
-                    echo "Tagging as latest..."
+                    echo "Packaging and pushing Helm chart"
+                    sh "make package-chart IMAGE_TAG=${imageTag}"
+                    sh "make push-chart IMAGE_TAG=${imageTag}"
+                    
+                    echo "Tagging as latest"
                     sh """
                         docker tag ${IMAGE_NAME}:${imageTag} ${REGISTRY}/${IMAGE_NAME}:latest
                         docker push ${REGISTRY}/${IMAGE_NAME}:latest
                     """
+                }
+            }
+        }
+
+        stage('Update Flux Staging') {
+            when {
+                tag pattern: "v\\d+\\.\\d+\\.\\d+", comparator: "REGEXP"
+            }
+            steps {
+                script {
+                    def chartVersion = env.TAG_NAME
+                    
+                    withCredentials([usernamePassword(credentialsId: 'github-ghcr', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD')]) {
+                        sh """
+                            git config user.name "Jenkins CI"
+                            git config user.email "jenkins@devops.local"
+                            
+                            sed -i 's|version: .*|version: ${chartVersion}|' flux/staging/patches.yaml
+                            sed -i 's|tag: .*|tag: ${chartVersion}|' flux/staging/patches.yaml
+                            
+                            git add flux/staging/patches.yaml
+                            git commit -m "chore: bump staging to ${chartVersion}" || echo "No changes to commit"
+                            
+                            git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/bwoogmy/devops_frontend.git HEAD:main || echo "Push failed or no changes"
+                        """
+                    }
                 }
             }
         }
