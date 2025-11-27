@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frontend
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: devops-frontend
+  namespace: frontend
+spec:
+  type: oci
+  interval: 1m
+  url: oci://ghcr.io/bwoogmy/helm
+  secretRef:
+    name: ghcr-credentials
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: devops-frontend
+  namespace: frontend
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: devops-frontend
+      version: PLACEHOLDER_VERSION
+      sourceRef:
+        kind: HelmRepository
+        name: devops-frontend
+  values:
+    image:
+      tag: PLACEHOLDER_VERSION
